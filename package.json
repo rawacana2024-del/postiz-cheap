@@ -30,7 +30,10 @@
     "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
+    "@prisma/composer": "^0.39.0",
+    "@prisma/composer-prisma-cloud": "^0.39.0",
     "@tailwindcss/postcss": "^4",
+    "@types/node": "^26.6.6",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "prisma": "^7.8.0",
