@@ -1,6 +1,5 @@
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "./prisma";
 
 export const authOptions = {
@@ -13,46 +12,12 @@ export const authOptions = {
       clientId: process.env.GOOGLE_CLIENT_ID || "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
     }),
-    CredentialsProvider({
-      name: "Demo / Admin Account",
-      credentials: {
-        email: { label: "Email", type: "email", placeholder: "demo@creator.local" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        const email = credentials?.email?.trim().toLowerCase() || "demo@creator.local";
-        const name = email.split("@")[0].toUpperCase();
-
-        try {
-          // Attempt to find or create in DB if database is connected
-          let user = await prisma.user.findUnique({ where: { email } });
-          if (!user) {
-            user = await prisma.user.create({
-              data: {
-                email,
-                name,
-                credits: 50,
-              },
-            });
-          }
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            credits: user.credits,
-          };
-        } catch (dbError) {
-          console.warn("[AUTH_DB_FALLBACK] Database offline or unreachable, using local session user:", dbError.message);
-          // Resilient fallback so users can always test and preview the application
-          return {
-            id: "demo-user-" + Buffer.from(email).toString("hex").slice(0, 12),
-            name: name || "Demo User",
-            email: email,
-            credits: 50,
-          };
-        }
-      },
-    }),
+    // NOTE (2026-11-21, Prisma deploy prep): the "Demo / Admin Account"
+    // CredentialsProvider was removed. It accepted ANY email with NO password
+    // check and auto-created a user with 50 credits — anyone could sign in
+    // as any account on a public deployment. Google sign-in is now the only
+    // provider. Do not re-add a credentials provider without a real
+    // password check.
   ],
   callbacks: {
     async jwt({ token, user }) {
@@ -70,7 +35,10 @@ export const authOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET || "free-ai-social-media-scheduler-fallback-secret-2025",
+  // No fallback secret: a real NEXTAUTH_SECRET must be set in the deployment
+  // environment. The old hardcoded fallback meant every install shared one
+  // public session-signing secret.
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/login",
   },
