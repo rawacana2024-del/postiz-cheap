@@ -1,0 +1,12 @@
+name: Trigger scheduled posts
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cron endpoint
+        run: |
+          curl -sS -X GET "https://postiz-cheap-blush.vercel.app/api/cron/posts" -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
