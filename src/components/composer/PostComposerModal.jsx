@@ -572,11 +572,16 @@ export default function PostComposerModal({
 
       let finalUrl = "";
       if (!res.ok) {
-        finalUrl = URL.createObjectURL(file);
-      } else {
-        const data = await res.json();
-        finalUrl = data.url || URL.createObjectURL(file);
+        const errText = await res.text().catch(() => "");
+        setErrorMsg(`Upload gagal (${res.status}). ${errText ? errText.slice(0, 200) : "Coba lagi atau pakai file yang lebih kecil."}`);
+        return;
       }
+      const data = await res.json();
+      if (!data.url || !/^https?:\/\//i.test(data.url)) {
+        setErrorMsg("Upload gagal: server tidak mengembalikan URL media. Coba lagi atau pakai file yang lebih kecil.");
+        return;
+      }
+      finalUrl = data.url;
 
       if (activeComposerTab === "all") {
         setMediaUrl(finalUrl);
@@ -590,19 +595,9 @@ export default function PostComposerModal({
         }));
       }
     } catch (err) {
-      console.warn("Upload fallback used:", err);
-      const fallbackUrl = URL.createObjectURL(file);
-      if (activeComposerTab === "all") {
-        setMediaUrl(fallbackUrl);
-      } else {
-        setPlatformOverrides((prev) => ({
-          ...prev,
-          [activeComposerTab]: {
-            ...prev[activeComposerTab],
-            mediaUrl: fallbackUrl,
-          },
-        }));
-      }
+      console.warn("Upload failed:", err);
+      setErrorMsg("Upload gagal: tidak bisa terhubung ke server upload. Coba lagi.");
+      return;
     } finally {
       setUploading(false);
     }
@@ -633,6 +628,14 @@ export default function PostComposerModal({
     const hasAnyMedia = mediaUrl || Object.values(platformOverrides).some((o) => !!o.mediaUrl);
     if (!hasAnyMedia) {
       setErrorMsg("Please upload or provide a media URL for your post.");
+      return;
+    }
+
+    // A blob: or data: URL means the upload never completed — it cannot be
+    // published. Block the save so the failure is visible right away.
+    const allMediaUrls = [mediaUrl, ...Object.values(platformOverrides).map((o) => o.mediaUrl).filter(Boolean)];
+    if (allMediaUrls.some((u) => /^(blob:|data:)/i.test(u))) {
+      setErrorMsg("Media belum terunggah dengan benar (masih link sementara). Unggah ulang videonya.");
       return;
     }
 
