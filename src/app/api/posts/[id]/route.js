@@ -4,6 +4,14 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { DemoStore } from "@/lib/demo-store";
 
+// TikTok's API only accepts its own privacy enum. The composer stores
+// YouTube-style values ("public"/"unlisted"/"private"), so translate them;
+// passing "public" through raw is rejected by MuAPI.
+function toTikTokPrivacyLevel(privacy) {
+  if (privacy === "private") return "SELF_ONLY";
+  return "PUBLIC_TO_EVERYONE";
+}
+
 // DELETE: Delete or Cancel a post
 export async function DELETE(req, { params }) {
   try {
@@ -116,7 +124,7 @@ export async function PATCH(req, { params }) {
             bodyData.reply_settings = "everyone";
           } else if (plat === "tiktok") {
             bodyData.title = post.title || captionText;
-            bodyData.privacy_level = post.privacy || "PUBLIC_TO_EVERYONE";
+            bodyData.privacy_level = toTikTokPrivacyLevel(post.privacy);
           } else if (plat === "instagram" || plat === "facebook" || plat === "threads" || plat === "linkedin") {
             bodyData.caption = captionText;
             bodyData.placement = "timeline";
