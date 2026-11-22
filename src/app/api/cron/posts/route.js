@@ -22,11 +22,26 @@ import config from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
+// TikTok's API only accepts its own privacy enum. The composer stores
+// YouTube-style values ("public"/"unlisted"/"private"), so translate them;
+// passing "public" through raw is rejected by MuAPI.
+function toTikTokPrivacyLevel(privacy) {
+  if (privacy === "private") return "SELF_ONLY";
+  return "PUBLIC_TO_EVERYONE";
+}
+
 // Helper function to call the MuAPI publishing endpoints.
 // Mirrors src/app/api/posts/route.js (kept in sync with it).
 async function triggerMuApiPublish(platform, payload) {
   const apiKey = config.ai.apiKey;
   const plat = (platform || "").toLowerCase().replace("x_twitter", "x");
+
+  // MuAPI only accepts real http/https media URLs. A blob: or data: URL
+  // means the upload never completed — fail here with a clear message
+  // instead of letting MuAPI reject it with a cryptic error.
+  if (!/^https?:\/\//i.test(payload.mediaUrl || "")) {
+    throw new Error(`Media URL tidak valid (${payload.mediaUrl || "kosong"}): unggah ulang medianya supaya tersimpan sebagai URL http/https, bukan link sementara.`);
+  }
 
   const endpointMap = {
     youtube: "https://api.muapi.ai/api/v1/youtube-publish",
@@ -61,7 +76,7 @@ async function triggerMuApiPublish(platform, payload) {
     bodyData.made_for_kids = payload.madeForKids || false;
   } else if (plat === "tiktok") {
     bodyData.title = payload.title || captionText;
-    bodyData.privacy_level = payload.privacy || "PUBLIC_TO_EVERYONE";
+    bodyData.privacy_level = toTikTokPrivacyLevel(payload.privacy);
     bodyData.disable_comment = payload.disableComment || false;
     bodyData.disable_duet = payload.disableDuet || false;
     bodyData.disable_stitch = payload.disableStitch || false;
